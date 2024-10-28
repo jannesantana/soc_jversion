@@ -1,0 +1,1 @@
+First, compute the local order parameter, and then do another loop (i.e. once again) to detect the misalignment with respect to the local order parameter (that needs to be computed first).
