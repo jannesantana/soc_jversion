@@ -70,7 +70,7 @@ double TopeY;
 int TempsInitial;
 int TempsTotal;
 // double Dt; 
-int t_XY_Save=10;	
+int t_XY_Save=10000;	
 
 
 
@@ -246,6 +246,9 @@ Particle& pi = particles[i];
                 int neighborX = (cellX + dx + Cells) % Cells;
                 int neighborY = (cellY + dy + Cells) % Cells;
                 int neighborCellIndex = neighborY * Cells + neighborX; // pick up neighboring cell index 
+                // if (cellX==0 & cellY==0) {
+                //     std::cout << "neighbouring cells = (" << neighborX <<","<< neighborY <<")" <<std::endl;
+                // }
 
                 //  std::cout <<" searching for neighbors" << std::endl;
 
@@ -272,10 +275,10 @@ Particle& pi = particles[i];
                     //     dx -= box * round(dx / box);
                     //     dy -= box * round(dy / box);
 
-                    if (i==4) {
-                        std::cout << "cellX = " << cellX << ", "<< "cell Y = " <<cellY << std::endl;
-                        std::cout << j << " is neighbor in  cellX = " << cellX << ", "<< "cell Y = " <<cellY<<std::endl;
-                    }
+                    // if (i==4) {
+                    //     std::cout << "cellX = " << cellX << ", "<< "cell Y = " <<cellY << std::endl;
+                    //     std::cout << j << " is neighbor in  cellX = " << cellX << ", "<< "cell Y = " <<cellY<<std::endl;
+                    // }
 
                        
 
@@ -457,11 +460,18 @@ double updatePositions(Particle* particles) {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <parameter_file>" << std::endl;
+        return 1;
+    }
+
+    std::string param_file = argv[1];
     // gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
     // gsl_rng_set(r, time(NULL));
 
-    std::map<std::string, double> params = readParams("params.dat");
+    std::map<std::string, double> params = readParams(param_file);
 
     // Use the parameters in the simulation
     box = params["box"];
