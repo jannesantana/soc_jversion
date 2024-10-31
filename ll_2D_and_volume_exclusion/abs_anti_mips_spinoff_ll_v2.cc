@@ -131,11 +131,11 @@ int getCellIndex(double x, double y) {
 }
 
 
-    std::random_device rd;  // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); 
-    std::uniform_real_distribution<> dis(-1.0, 1.0);// Standard mersenne_twister_engine seeded with rd()
+    std::random_device rd{};  // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen{rd()}; 
+    std::normal_distribution<double> dis(0, 1.0);// Standard mersenne_twister_engine seeded with rd()
     // std::mt19937 gen(rd()); 
-    std::uniform_real_distribution<> dis2(0, 1.0);
+    std::uniform_real_distribution<double> dis2(0, 1.0);
 
 void initializeParticles(Particle* particles) {
     
@@ -373,54 +373,54 @@ double updatePositions(Particle* particles) {
 // the next loop goes through all the neighbourhoods and verifies if there exist a defector 
 // if yes, gives a +1 value and stores the direction; else if just gives a -1 value. 
 
-    for (int i=0; i < N_particles; ++i) {
-        // std::cout << "there" << std::endl;
-        std::vector<int> neihgs = particles[i].neigh_loc;
-        // std::cout << "number of neighbors = "<< particles[i].neighbors  << std::endl;
-        // std::cout << "neighs size = " << neihgs.size() << std::endl;
-        if (particles[i].neighbors > 1) {
-        for (int j = 0; j < particles[i].neighbors -1; j++)
-        {   
-            // std::cout << "there 2" << std::endl;
-            // std::cout << "j = "<< j << std::endl;
-            int index_ang_neigh = neihgs[j];
-            // std::cout << "there 3" << std::endl;
-            double ang_neigh = particles[index_ang_neigh].theta;
-            // std::cout << "there 4" << std::endl;
-            double quantity = cos(ang_neigh - particles[i].avg_ang_region);
-           if (quantity < minQuantity) {
-            minQuantity = quantity;
-            minIndex = j;
-           }
-        }
+    // for (int i=0; i < N_particles; ++i) {
+    //     // std::cout << "there" << std::endl;
+    //     std::vector<int> neihgs = particles[i].neigh_loc;
+    //     // std::cout << "number of neighbors = "<< particles[i].neighbors  << std::endl;
+    //     // std::cout << "neighs size = " << neihgs.size() << std::endl;
+    //     if (particles[i].neighbors > 1) {
+    //     for (int j = 0; j < particles[i].neighbors -1; j++)
+    //     {   
+    //         // std::cout << "there 2" << std::endl;
+    //         // std::cout << "j = "<< j << std::endl;
+    //         int index_ang_neigh = neihgs[j];
+    //         // std::cout << "there 3" << std::endl;
+    //         double ang_neigh = particles[index_ang_neigh].theta;
+    //         // std::cout << "there 4" << std::endl;
+    //         double quantity = cos(ang_neigh - particles[i].avg_ang_region);
+    //        if (quantity < minQuantity) {
+    //         minQuantity = quantity;
+    //         minIndex = j;
+    //        }
+    //     }
 
-        if (minQuantity < -0.3)
-        {
-            particles[i].if_defector = 1;
-            particles[i].defector = particles[minIndex].theta;
-        } else {particles[i].if_defector = -1;}
+    //     if (minQuantity < -0.3)
+    //     {
+    //         particles[i].if_defector = 1;
+    //         particles[i].defector = particles[minIndex].theta;
+    //     } else {particles[i].if_defector = -1;}
         
     
-    } else {particles[i].if_defector = -1;}
+    // } else {particles[i].if_defector = -1;}
 
-    }
+    // }
    
     for (int i = 0; i < N_particles; ++i) {
         double rnd = dis(gen);
         
 
-        double prod_avg;
+        // double prod_avg;
         
-        prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
-        // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
-        // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
-        if ( (prod_avg > 0.3)  & (particles[i].if_defector == 1)) {
+        // prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
+        // // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
+        // // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
+        // if ( (prod_avg > 0.3)  & (particles[i].if_defector == 1)) {
            
-            // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
-            particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
-        } 
-        else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
-        // particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
+        //     // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
+        //     particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
+        // } 
+        // else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+        particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
 
         
       
