@@ -133,7 +133,7 @@ int getCellIndex(double x, double y) {
 
     std::random_device rd{};  // Will be used to obtain a seed for the random number engine
     std::mt19937 gen{rd()}; 
-    std::normal_distribution<double> dis(0, 1.0);// Standard mersenne_twister_engine seeded with rd()
+    std::normal_distribution<double> dis{0.0, 1.0};// Standard mersenne_twister_engine seeded with rd()
     // std::mt19937 gen(rd()); 
     std::uniform_real_distribution<double> dis2(0, 1.0);
 
@@ -144,7 +144,7 @@ void initializeParticles(Particle* particles) {
         particles[i].x = dis2(gen) * box; // random initial consitions 
         particles[i].y = dis2(gen) * box;
 
-        particles[i].theta = dis(gen)*PI;
+        particles[i].theta = 2*dis(gen)*PI;
 		particles[i].fx = 0.0;
         particles[i].fy = 0.0;
         particles[i].alignment = 0.0;

@@ -70,7 +70,7 @@ double TopeY;
 int TempsInitial;
 int TempsTotal;
 // double Dt; 
-int t_XY_Save=10000;	
+int t_XY_Save=1;	
 
 
 
@@ -131,11 +131,11 @@ int getCellIndex(double x, double y) {
 }
 
 
-    std::random_device rd;  // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); 
-    std::uniform_real_distribution<> dis(-1.0, 1.0);// Standard mersenne_twister_engine seeded with rd()
+   std::random_device rd{};  // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen{rd()}; 
+    std::normal_distribution<double> dis{0.0, 1.0};// Standard mersenne_twister_engine seeded with rd()
     // std::mt19937 gen(rd()); 
-    std::uniform_real_distribution<> dis2(0, 1.0);
+    std::uniform_real_distribution<double> dis2(0, 1.0);
 
 void initializeParticles(Particle* particles) {
     
