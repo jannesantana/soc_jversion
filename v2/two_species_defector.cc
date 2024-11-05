@@ -29,6 +29,9 @@ double R;
 double sigma;
 double epsilon;
 double alig_str;
+double acceptance_rate=20;
+std::vector<int> particles_w_high_order;
+
 
 std::map<std::string, double> readParams(const std::string& filename) {
     std::ifstream file(filename);
@@ -70,7 +73,7 @@ double TopeY;
 int TempsInitial;
 int TempsTotal;
 // double Dt; 
-int t_XY_Save=1;	
+int t_XY_Save=10000;	
 
 
 
@@ -94,9 +97,11 @@ struct Particle {
     int if_defector;
     int cellIndex; // Cell index in the linked list
     double sd_t;
+    double prob_of_accepting;
     std::vector<int> neigh_loc;
     double ini_posx, ini_posy;
     double aux_posx, aux_posy;
+    double op_in_region;
 };
 
 double applyPBC(double coord) {
@@ -131,20 +136,23 @@ int getCellIndex(double x, double y) {
 }
 
 
-    std::random_device rd;  // Will be used to obtain a seed for the random number engine
-    std::mt19937 gen(rd()); 
-    std::uniform_real_distribution<> dis(-1.0, 1.0);// Standard mersenne_twister_engine seeded with rd()
+   std::random_device rd{};  // Will be used to obtain a seed for the random number engine
+    std::mt19937 gen{rd()}; 
+    std::normal_distribution<double> dis{0.0, 1.0};// Standard mersenne_twister_engine seeded with rd()
     // std::mt19937 gen(rd()); 
-    std::uniform_real_distribution<> dis2(0, 1.0);
+    std::uniform_real_distribution<double> dis2(0, 1.0);
+
 
 void initializeParticles(Particle* particles) {
+
+    
     
     for (int i = 0; i < N_particles; ++i) {
 
         particles[i].x = dis2(gen) * box; // random initial consitions 
         particles[i].y = dis2(gen) * box;
 
-        particles[i].theta = dis2(gen)*2*PI;
+        particles[i].theta = dis(gen)*PI;
 		particles[i].fx = 0.0;
         particles[i].fy = 0.0;
         particles[i].alignment = 0.0;
@@ -156,6 +164,7 @@ void initializeParticles(Particle* particles) {
         // particles[i].if_defector= -1;
         particles[i].aux_posx=0.0;
         particles[i].aux_posy=0.0;
+        particles[i].op_in_region = 0.0;
         particles[i].cellIndex = getCellIndex(particles[i].x, particles[i].y); // get cell index 
 
 	}
@@ -214,6 +223,9 @@ void buildLinkedList(Particle* particles, int* head, int* linkedList) {
 }
 
 void simulateInteractions(Particle* particles, int* head,  int* linkedList) {
+
+    particles_w_high_order.clear();
+    particles_w_high_order.shrink_to_fit();
     for (int i = 0; i < N_particles; ++i) {
         
         particles[i].fx = 0.0; // Reset forces
@@ -224,6 +236,7 @@ void simulateInteractions(Particle* particles, int* head,  int* linkedList) {
         particles[i].defector=0.0;
         particles[i].neigh_loc.clear();
         particles[i].neigh_loc.shrink_to_fit();
+        particles[i].op_in_region = 0.0;
         // particles[i].if_defector= -1;
         // particles[i].force_pili_x = 0.0;
         // particles[i].force_pili_y = 0.0;
@@ -232,6 +245,8 @@ void simulateInteractions(Particle* particles, int* head,  int* linkedList) {
 
 double order_in_region_x = 0.0; 
 double order_in_region_y = 0.0; 
+
+// double op_in_region= 0.0;
 // int neigh_in_region;
 
  for (int i = 0; i < N_particles; ++i) {
@@ -246,6 +261,9 @@ Particle& pi = particles[i];
                 int neighborX = (cellX + dx + Cells) % Cells;
                 int neighborY = (cellY + dy + Cells) % Cells;
                 int neighborCellIndex = neighborY * Cells + neighborX; // pick up neighboring cell index 
+                // if (cellX==0 & cellY==0) {
+                //     std::cout << "neighbouring cells = (" << neighborX <<","<< neighborY <<")" <<std::endl;
+                // }
 
                 //  std::cout <<" searching for neighbors" << std::endl;
 
@@ -257,6 +275,9 @@ Particle& pi = particles[i];
                         Particle& pj = particles[j];
                         double dx = pi.x - pj.x;
                         double dy = pi.y - pj.y;
+
+                       
+
                        
 
                         // PBC in the distance between the particles!! 
@@ -268,6 +289,11 @@ Particle& pi = particles[i];
                        
                     //     dx -= box * round(dx / box);
                     //     dy -= box * round(dy / box);
+
+                    // if (i==4) {
+                    //     std::cout << "cellX = " << cellX << ", "<< "cell Y = " <<cellY << std::endl;
+                    //     std::cout << j << " is neighbor in  cellX = " << cellX << ", "<< "cell Y = " <<cellY<<std::endl;
+                    // }
 
                        
 
@@ -338,12 +364,16 @@ Particle& pi = particles[i];
 
                     
 
-                    } // loop over particles j that intereact with i 
+                    } // loop over neighboring cells
                     order_in_region_x = order_in_region_x/pi.neighbors;
                     order_in_region_y = order_in_region_y/pi.neighbors;
                     pi.avg_ang_region = atan2(order_in_region_y,order_in_region_x);
+                    double op_in_region = sqrt(order_in_region_x*order_in_region_x + order_in_region_y+order_in_region_y);
+                    pi.op_in_region = op_in_region;
+                    
                     j = linkedList[j];
                 } // loop over particles j that intereact with i 
+
             } // neighboring cells loop y
         } // neighboring cells loop x
 	
@@ -352,62 +382,116 @@ Particle& pi = particles[i];
 
 }
 int time_aux = 0;
+
+// particles_w_high_order.clear();
+// particles_w_high_order.shrink_to_fit();
 double updatePositions(Particle* particles) {
+    int nbr_poss_defectors=0;
+    for (int i = 0; i < N_particles; ++i)
+    {
+        
+        if (particles[i].op_in_region > 0.8) {
+            nbr_poss_defectors ++;
+            particles_w_high_order.push_back(i);
+        }
+    }
 
-    double minQuantity = 2; // Initially set to a large value
-    // int minElement = array[0]; // To store the element that gives the minimum quantity
-    int minIndex=0; // To store the index of that element
-
-
-// the next loop goes through all the neighbourhoods and verifies if there exist a defector 
-// if yes, gives a +1 value and stores the direction; else if just gives a -1 value. 
-
-    for (int i=0; i < N_particles; ++i) {
-        // std::cout << "there" << std::endl;
-        std::vector<int> neihgs = particles[i].neigh_loc;
-        // std::cout << "number of neighbors = "<< particles[i].neighbors  << std::endl;
-        // std::cout << "neighs size = " << neihgs.size() << std::endl;
-        if (particles[i].neighbors > 1) {
-        for (int j = 0; j < particles[i].neighbors -1; j++)
-        {   
-            // std::cout << "there 2" << std::endl;
-            // std::cout << "j = "<< j << std::endl;
-            int index_ang_neigh = neihgs[j];
-            // std::cout << "there 3" << std::endl;
-            double ang_neigh = particles[index_ang_neigh].theta;
-            // std::cout << "there 4" << std::endl;
-            double quantity = cos(ang_neigh - particles[i].avg_ang_region);
-           if (quantity < minQuantity) {
-            minQuantity = quantity;
-            minIndex = j;
-           }
+int defector;
+   if (dist > 0.8) {
+            std::uniform_int_distribution<int> dis_int(0,nbr_poss_defectors-1);
+            int rand_defector_index = dis_int(gen);
+            defector = particles_w_high_order[rand_defector_index];
+            // particles[rand_defector_index].theta = particles[rand_defector_index].avg_ang_region + PI/6;
         }
 
-        if (minQuantity < -0.9)
+    for (int i = 0; i < N_particles; ++i)
+    {
+        int nbr_neighbors = particles[i].neighbors;
+        std::vector<int> neighbors_of_part_now = particles[i].neigh_loc;
+        for (int j = 0; j < nbr_neighbors; j++)
         {
-            particles[i].if_defector = 1;
-            particles[i].defector = particles[minIndex].theta;
-        } else {particles[i].if_defector = -1;}
+            if (neighbors_of_part_now[j] == defector) 
+            {
+                double prob_of_defector = dis2(gen);
+                if (acceptance_rate*Dt >= prob_of_defector) {
+                    
+                } 
+
+            }
+        }
+        
+
+        
+       
+    }
+    
+
+
+    
+
+//     double minQuantity = 2; // Initially set to a large value
+//     // int minElement = array[0]; // To store the element that gives the minimum quantity
+//     int minIndex=0; // To store the index of that element
+
+
+// // the next loop goes through all the neighbourhoods and verifies if there exist a defector 
+// // if yes, gives a +1 value and stores the direction; else if just gives a -1 value. 
+
+//     for (int i=0; i < N_particles; ++i) {
+//         // std::cout << "there" << std::endl;
+//         std::vector<int> neihgs = particles[i].neigh_loc;
+//         // std::cout << "number of neighbors = "<< particles[i].neighbors  << std::endl;
+//         // std::cout << "neighs size = " << neihgs.size() << std::endl;
+//         if (particles[i].neighbors > 1) {
+//         for (int j = 0; j < particles[i].neighbors -1; j++)
+//         {   
+//             // std::cout << "there 2" << std::endl;
+//             // std::cout << "j = "<< j << std::endl;
+//             int index_ang_neigh = neihgs[j];
+//             // std::cout << "there 3" << std::endl;
+//             double ang_neigh = particles[index_ang_neigh].theta;
+//             // std::cout << "there 4" << std::endl;
+//             double quantity = cos(ang_neigh - particles[i].avg_ang_region);
+//            if (quantity < minQuantity) {
+//             minQuantity = quantity;
+//             minIndex = j;
+//            }
+//         }
+
+//         if (minQuantity < -0.3)
+//         {
+//             particles[i].if_defector = 1;
+//             particles[i].defector = particles[minIndex].theta;
+//         } else {particles[i].if_defector = -1;}
         
     
-    } else {particles[i].if_defector = -1;}
+//     } else {particles[i].if_defector = -1;}
 
-    }
+//     }
    
-    for (int i = 0; i < N_particles; ++i) {
-        double rnd = dis(gen);
-        
+  
+  
+    
 
-        double prod_avg;
+     
+
+  for (int i = 0; i < N_particles; ++i) {
         
-        prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
-        // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
-        // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
-        if ( (prod_avg > 0.7)  & (particles[i].if_defector == 1)) {
+        
+      double rnd = dis(gen);
+        // double prod_avg;
+        
+        // prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
+        // // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
+        // // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
+        // if ( (prod_avg > 0.3)  & (particles[i].if_defector == 1)) {
            
-            // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
-            particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
-        } else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+        //     // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
+        //     particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
+        // } 
+        // else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+
+        // particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
 
         
       
@@ -447,11 +531,18 @@ double updatePositions(Particle* particles) {
 }
 
 
-int main() {
+int main(int argc, char* argv[]) {
+
+    if (argc < 2) {
+        std::cerr << "Usage: " << argv[0] << " <parameter_file>" << std::endl;
+        return 1;
+    }
+
+    std::string param_file = argv[1];
     // gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
     // gsl_rng_set(r, time(NULL));
 
-    std::map<std::string, double> params = readParams("params.dat");
+    std::map<std::string, double> params = readParams(param_file);
 
     // Use the parameters in the simulation
     box = params["box"];
