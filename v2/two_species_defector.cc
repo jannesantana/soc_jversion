@@ -73,7 +73,7 @@ double TopeY;
 int TempsInitial;
 int TempsTotal;
 // double Dt; 
-int t_XY_Save=10000;	
+int t_XY_Save=1;	
 
 
 
@@ -250,6 +250,7 @@ double order_in_region_y = 0.0;
 // int neigh_in_region;
 
  for (int i = 0; i < N_particles; ++i) {
+   
 Particle& pi = particles[i];
         int cellX = static_cast<int>(pi.x / CUTOFF)% Cells;
         int cellY = static_cast<int>(pi.y / CUTOFF)% Cells;
@@ -368,8 +369,8 @@ Particle& pi = particles[i];
                     order_in_region_x = order_in_region_x/pi.neighbors;
                     order_in_region_y = order_in_region_y/pi.neighbors;
                     pi.avg_ang_region = atan2(order_in_region_y,order_in_region_x);
-                    double op_in_region = sqrt(order_in_region_x*order_in_region_x + order_in_region_y+order_in_region_y);
-                    pi.op_in_region = op_in_region;
+                    // sqrt(order_in_region_x*order_in_region_x + order_in_region_y+order_in_region_y);
+                    pi.op_in_region = sqrt(order_in_region_x*order_in_region_x + order_in_region_y+order_in_region_y);
                     
                     j = linkedList[j];
                 } // loop over particles j that intereact with i 
@@ -386,6 +387,7 @@ int time_aux = 0;
 // particles_w_high_order.clear();
 // particles_w_high_order.shrink_to_fit();
 double updatePositions(Particle* particles) {
+    //  std::cout << "passed" << std::endl;
     int nbr_poss_defectors=0;
     for (int i = 0; i < N_particles; ++i)
     {
@@ -401,27 +403,42 @@ int defector;
             std::uniform_int_distribution<int> dis_int(0,nbr_poss_defectors-1);
             int rand_defector_index = dis_int(gen);
             defector = particles_w_high_order[rand_defector_index];
+            particles[defector].theta = particles[defector].avg_ang_region + PI/6;
             // particles[rand_defector_index].theta = particles[rand_defector_index].avg_ang_region + PI/6;
         }
 
     for (int i = 0; i < N_particles; ++i)
     {
+
+        double rnd = dis(gen);
         int nbr_neighbors = particles[i].neighbors;
         std::vector<int> neighbors_of_part_now = particles[i].neigh_loc;
-        for (int j = 0; j < nbr_neighbors; j++)
+        for (int j = 0; j < nbr_neighbors-1; j++)
         {
+            //  std::cout << "check" << std::endl;
             if (neighbors_of_part_now[j] == defector) 
             {
                 double prob_of_defector = dis2(gen);
                 if (acceptance_rate*Dt >= prob_of_defector) {
-                    
-                } 
+                    particles[i].theta = particles[defector].theta;
 
-            }
+                } 
+                else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+
+            } else {break;}
         }
         
 
-        
+        particles[i].x += particles[i].fx*Dt + Vo*cos(particles[i].theta)*Dt;
+        particles[i].y += particles[i].fy*Dt +  Vo*sin(particles[i].theta)*Dt;
+        particles[i].aux_posx += particles[i].fx*Dt+ Vo*cos(particles[i].theta)*Dt;
+        particles[i].aux_posy += particles[i].fy*Dt+ Vo*sin(particles[i].theta)*Dt;
+
+        particles[i].x = applyPBC(particles[i].x);
+        particles[i].y = applyPBC(particles[i].y);
+        particles[i].theta = applyPBCangle(particles[i].theta);
+
+        particles[i].cellIndex = getCellIndex(particles[i].x, particles[i].y);
        
     }
     
@@ -475,38 +492,38 @@ int defector;
 
      
 
-  for (int i = 0; i < N_particles; ++i) {
+//   for (int i = 0; i < N_particles; ++i) {
         
         
-      double rnd = dis(gen);
-        // double prod_avg;
+      
+//         // double prod_avg;
         
-        // prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
-        // // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
-        // // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
-        // if ( (prod_avg > 0.3)  & (particles[i].if_defector == 1)) {
+//         // prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
+//         // // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
+//         // // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
+//         // if ( (prod_avg > 0.3)  & (particles[i].if_defector == 1)) {
            
-        //     // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
-        //     particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
-        // } 
-        // else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+//         //     // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
+//         //     particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
+//         // } 
+//         // else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
 
-        // particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
+//         // particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
 
         
       
-        particles[i].x += particles[i].fx*Dt + Vo*cos(particles[i].theta)*Dt;
-        particles[i].y += particles[i].fy*Dt +  Vo*sin(particles[i].theta)*Dt;
-        particles[i].aux_posx += particles[i].fx*Dt+ Vo*cos(particles[i].theta)*Dt;
-        particles[i].aux_posy += particles[i].fy*Dt+ Vo*sin(particles[i].theta)*Dt;
+//         particles[i].x += particles[i].fx*Dt + Vo*cos(particles[i].theta)*Dt;
+//         particles[i].y += particles[i].fy*Dt +  Vo*sin(particles[i].theta)*Dt;
+//         particles[i].aux_posx += particles[i].fx*Dt+ Vo*cos(particles[i].theta)*Dt;
+//         particles[i].aux_posy += particles[i].fy*Dt+ Vo*sin(particles[i].theta)*Dt;
 
-        particles[i].x = applyPBC(particles[i].x);
-        particles[i].y = applyPBC(particles[i].y);
-        particles[i].theta = applyPBCangle(particles[i].theta);
+//         particles[i].x = applyPBC(particles[i].x);
+//         particles[i].y = applyPBC(particles[i].y);
+//         particles[i].theta = applyPBCangle(particles[i].theta);
 
-        particles[i].cellIndex = getCellIndex(particles[i].x, particles[i].y);
+//         particles[i].cellIndex = getCellIndex(particles[i].x, particles[i].y);
 
-    }
+//     }
 
 
     // double dist=0.0;
@@ -588,7 +605,7 @@ int main(int argc, char* argv[]) {
     // sd.close();
         
     for (int t = 0; t < T; ++t) {
-       // std::cout << "time= " << t << std::endl << "---------------------" << "\n";
+    //    std::cout << "time= " << t << std::endl << "---------------------" << "\n";
         
   
         buildLinkedList(particles, head, linkedList);
