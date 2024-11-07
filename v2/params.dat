@@ -1,11 +1,11 @@
-box 10
+box 20
 cutoff 0.5
-Nparticles 5
+Nparticles 400
 Vo 1
-eta 0.6
+eta 0.55
 sigma 0.5
 R 1
 epsilon 0.1
 aligstr 1.1
-T 100
+T 1500
 Dt 0.1

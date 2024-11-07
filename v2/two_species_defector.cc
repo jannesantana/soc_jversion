@@ -13,6 +13,7 @@
 #include <fstream>
 #include <ctime>
 #include <random>
+#include <algorithm> 
 #include <vector>
 #define PI 3.14159265358979323846
 
@@ -29,7 +30,8 @@ double R;
 double sigma;
 double epsilon;
 double alig_str;
-double acceptance_rate=20;
+double acceptance_rate=5;
+double op_now;
 std::vector<int> particles_w_high_order;
 
 
@@ -393,42 +395,69 @@ double updatePositions(Particle* particles) {
     {
         
         if (particles[i].op_in_region > 0.8) {
+            // std::cout << "system ok for chosing defector" << std::endl;
             nbr_poss_defectors ++;
             particles_w_high_order.push_back(i);
         }
     }
 
 int defector;
-   if (dist > 0.8) {
+ std::cout << "nbr poss defector = "<< nbr_poss_defectors << std::endl;
+
+   if ((nbr_poss_defectors > 0) & (op_now > 0.8)) {
+            std::cout << "defector chosen" << std::endl;
             std::uniform_int_distribution<int> dis_int(0,nbr_poss_defectors-1);
+            
             int rand_defector_index = dis_int(gen);
+            std::cout << "here" << std::endl;
             defector = particles_w_high_order[rand_defector_index];
-            particles[defector].theta = particles[defector].avg_ang_region + PI/6;
+
+            particles[defector].theta = particles[defector].avg_ang_region + PI/2;
             // particles[rand_defector_index].theta = particles[rand_defector_index].avg_ang_region + PI/6;
         }
 
     for (int i = 0; i < N_particles; ++i)
     {
-
+        double update_theta;
         double rnd = dis(gen);
         int nbr_neighbors = particles[i].neighbors;
         std::vector<int> neighbors_of_part_now = particles[i].neigh_loc;
-        for (int j = 0; j < nbr_neighbors-1; j++)
+        // for (int j = 0; j < nbr_neighbors-1; j++)
+        // {
+        //     //  std::cout << "check" << std::endl;
+        //     if (neighbors_of_part_now[j] == defector) 
+        //     {
+        //         break;
+        //         double prob_of_defector = dis2(gen);
+        //         if (acceptance_rate*Dt >= prob_of_defector) {
+        //             update_theta = particles[defector].theta;
+
+        //         } 
+        //         else {update_theta = particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+
+        //     } else {
+        //         update_theta = particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
+        //         break;
+        //    }
+        // }
+        std::vector<int>::iterator p;
+        p = find(neighbors_of_part_now.begin(),neighbors_of_part_now.end(),defector);
+        if (p != neighbors_of_part_now.end())
         {
-            //  std::cout << "check" << std::endl;
-            if (neighbors_of_part_now[j] == defector) 
-            {
-                double prob_of_defector = dis2(gen);
+            std::cout << "defector found " << std::endl;
+           double prob_of_defector = dis2(gen);
                 if (acceptance_rate*Dt >= prob_of_defector) {
-                    particles[i].theta = particles[defector].theta;
-
+                    // std::cout << "accept rate = " << acceptance_rate*Dt << std::endl;
+                    //  std::cout << "prob of defector = " << prob_of_defector << std::endl;
+                    std::cout << "defector activated" << std::endl;
+                    update_theta = particles[defector].theta;
                 } 
-                else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
-
-            } else {break;}
+                else {update_theta =  particles[i].theta+ particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
+        } else {
+            update_theta =   particles[i].theta+ particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
         }
         
-
+        particles[i].theta = update_theta;
         particles[i].x += particles[i].fx*Dt + Vo*cos(particles[i].theta)*Dt;
         particles[i].y += particles[i].fy*Dt +  Vo*sin(particles[i].theta)*Dt;
         particles[i].aux_posx += particles[i].fx*Dt+ Vo*cos(particles[i].theta)*Dt;
@@ -543,6 +572,7 @@ int defector;
     aux_dist_y = aux_dist_y/N_particles;
     double dist = sqrt(aux_dist_x*aux_dist_x + aux_dist_y*aux_dist_y);
     time_aux++;
+    op_now = dist;
     return dist;
 
 }
