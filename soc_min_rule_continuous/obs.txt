@@ -1,0 +1,15 @@
+ 
+Code and data for the soc minority rule without the two especies defector. In here, we have the following: 
+
+- identify all neighboring particles 
+- check if one of them is defector 
+- with some prob accept it
+- if except vicsek-align with it
+
+
+
+in the jupyter notebook, you can visualize the animation and plot the polar order parameter as a function of time (squared_displacement file, for historical reasons) 
+
+to run, change the parameters in the params.dat fil, compile normally and run ./soc_min_rule params.dat
+
+eta and sigma are there as reminscent of previous versions with volume exclusion (WCA modified lennard-jones potential) 
