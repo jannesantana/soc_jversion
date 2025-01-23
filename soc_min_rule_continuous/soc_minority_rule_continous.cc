@@ -1,7 +1,7 @@
 // 
-//  To compile: c++ abs_anti_mips_spinoff_ll_v2.cc cokus3.c  -o antimips -lgsl -lgslcblas -lm
+//  To compile: c++ soc_minority_rule_continous.cc -o soc_minority_rule_continous 
 // If in mac : c++ -Wall -I/opt/homebrew/Cellar/gsl/2.7.1/include/ -L/opt/homebrew/Cellar/gsl/2.7.1/lib/ abs_anti_mips_spinoff_ll_v2.cc cokus3.c -o antimips -lgsl -lgslcblas -lm
-// using namespace std;
+// To run: ./soc_minority_rule_continous <parameter_file>
 
 
 #include <sstream>
@@ -21,14 +21,16 @@ double box; // Size of the 2D box (assuming a square box)
 double CUTOFF;    // Interaction cutoff distance
 int N_particles;  // Number of particles
 int Cells = box / CUTOFF; // Number of cells per dimension
-int T ;
-double Dt;
-double Vo;
-double eta;
-double R;
+int T ; // Number of time steps
+double Dt; // Time step size
+double Vo; // Self-propulsion velocity
+double eta; // Noise strength eta = sqrt(2*D)
+double R; // Radius of interaction
 double sigma;
-double epsilon;
-double alig_str;
+double epsilon; 
+double alig_str; // alignment strength
+
+// Function to read parameters from a file
 
 std::map<std::string, double> readParams(const std::string& filename) {
     std::ifstream file(filename);
@@ -61,43 +63,31 @@ std::string createFileName(const std::map<std::string, double>& params, const st
     return oss.str();
 }
 
-
-// int N;
-	
-double TopeX;
-double TopeY;
-	
-int TempsInitial;
-int TempsTotal;
-// double Dt; 
-int t_XY_Save=1;	
-
-
-
+int t_XY_Save = 10; // save positions every t_XY_Save time steps
 
 double atu_dist;
 
 double dist;
 
-
-
-
+// Structure to store particle information
 
 struct Particle {
     double x, y; // Position
     double theta; //angle 
     double fx, fy; // colisional force 
-    double alignment; 
-    int neighbors; 
-    double avg_ang_region;
-    double defector;
-    int if_defector;
+    double alignment; // alignment force
+    int neighbors; // number of neighbors
+    double avg_ang_region; // average angle in the interacting region
+    double defector; // defector angle
+    int if_defector; // +1 if there's a defector in the region, -1 if not
     int cellIndex; // Cell index in the linked list
-    double sd_t;
-    std::vector<int> neigh_loc;
+    double sd_t; // local order parameter at time t
+    std::vector<int> neigh_loc; // index of neighbors in the region
     double ini_posx, ini_posy;
     double aux_posx, aux_posy;
 };
+
+// Periodic boundary conditions
 
 double applyPBC(double coord) {
     if (coord >= box) {coord = coord - box;}
@@ -134,8 +124,10 @@ int getCellIndex(double x, double y) {
    std::random_device rd{};  // Will be used to obtain a seed for the random number engine
     std::mt19937 gen(rd()); 
     std::normal_distribution<double> dis{0.0, 1.0};// Standard mersenne_twister_engine seeded with rd()
-    // std::mt19937 gen(rd()); 
+  
     std::uniform_real_distribution<double> dis2(0, 1.0);
+
+// initial conditions
 
 void initializeParticles(Particle* particles) {
     
@@ -162,21 +154,7 @@ void initializeParticles(Particle* particles) {
 
 	}
 
-// void savePositions(const Particle* particles) { 
-//     std::ofstream file;
-   
-//     file.open("particle_positions.dat", std::ios::app); // open the file 
-
-//     // file << "Timestep " << timestep << "\n";
-//     for (int i = 0; i < N_particles; ++i) {
-//         file << particles[i].x << " " << particles[i].y  << " " << particles[i].theta <<"\n";
-//     }
-
-    
-
-//     file.close();
-// }
-
+// save positions to file
 void savePositions(const Particle* particles, const std::string& file_name) {
     std::ofstream file;
     file.open(file_name, std::ios::app);
@@ -186,6 +164,8 @@ void savePositions(const Particle* particles, const std::string& file_name) {
     file.close();
 }
 
+
+// build linked list
 
 void buildLinkedList(Particle* particles, int* head, int* linkedList) {
     // Initialize head and linked list
@@ -213,6 +193,8 @@ void buildLinkedList(Particle* particles, int* head, int* linkedList) {
 
 }
 
+// simulate interactions between particles for each time step t
+
 void simulateInteractions(Particle* particles, int* head,  int* linkedList) {
     for (int i = 0; i < N_particles; ++i) {
         
@@ -230,15 +212,16 @@ void simulateInteractions(Particle* particles, int* head,  int* linkedList) {
        
     }
 
+// aux variables to calculate the order in the region in x and y
+
 double order_in_region_x = 0.0; 
 double order_in_region_y = 0.0; 
-// int neigh_in_region;
+
 
  for (int i = 0; i < N_particles; ++i) {
 Particle& pi = particles[i];
-        int cellX = static_cast<int>(pi.x / CUTOFF)% Cells;
+        int cellX = static_cast<int>(pi.x / CUTOFF)% Cells; // get cell index
         int cellY = static_cast<int>(pi.y / CUTOFF)% Cells;
-        // std::cout <<"cell index for particle at the moment" << std::endl;
 
         // Loop over neighboring cells
         for (int dx = -1; dx <= 1; ++dx) {
@@ -246,19 +229,15 @@ Particle& pi = particles[i];
                 int neighborX = (cellX + dx + Cells) % Cells;
                 int neighborY = (cellY + dy + Cells) % Cells;
                 int neighborCellIndex = neighborY * Cells + neighborX; // pick up neighboring cell index 
-                // if (cellX==0 & cellY==0) {
-                //     std::cout << "neighbouring cells = (" << neighborX <<","<< neighborY <<")" <<std::endl;
-                // }
+                
 
-                //  std::cout <<" searching for neighbors" << std::endl;
-
-                int j = head[neighborCellIndex];
-                while (j != -1) {
+                int j = head[neighborCellIndex]; // get the first particle in the neighboring cell
+                while (j != -1) { // loop over all particles in the neighboring cell
                     
                     
                     if (i != j) {
                         Particle& pj = particles[j];
-                        double dx = pi.x - pj.x;
+                        double dx = pi.x - pj.x; //distance between particles x and y 
                         double dy = pi.y - pj.y;
 
                        
@@ -271,20 +250,13 @@ Particle& pi = particles[i];
                         if ((dy>0) && (dy>(box/2)))  dy=dy-box;
 					        if ((dy<0) && (dy< -(box/2))) dy=dy+box;	
                         
-                       
-                    //     dx -= box * round(dx / box);
-                    //     dy -= box * round(dy / box);
-
-                    // if (i==4) {
-                    //     std::cout << "cellX = " << cellX << ", "<< "cell Y = " <<cellY << std::endl;
-                    //     std::cout << j << " is neighbor in  cellX = " << cellX << ", "<< "cell Y = " <<cellY<<std::endl;
-                    // }
+                
 
                        
 
                         double distanceSquared = dx * dx + dy * dy;
                        
-                        // if (distanceSquared < CUTOFF * CUTOFF) { 
+                        // if (distanceSquared < CUTOFF * CUTOFF) { // in case of volume exclusi9on
 
                         //     // ---- FORCE ---- // 
                             
@@ -321,6 +293,8 @@ Particle& pi = particles[i];
                         // double neigh_x = cos(pj.theta)
                         // double neigh_y
                         // std::vector<double> tempArray;
+
+
                         if (distanceSquared < R*R){
                             pi.neighbors += 1;
                             double Alignment =  sin(pj.theta - pi.theta);
@@ -331,7 +305,8 @@ Particle& pi = particles[i];
                             order_in_region_x+= cos(pj.theta);
                             order_in_region_y+= sin(pj.theta);
                             
-                            pi.neigh_loc.push_back(j);
+                            pi.neigh_loc.push_back(j); // store the index of the neighbors in the region
+
                             // if ((cos(pj.theta - pi.theta) < -0.9) & (cos(pj.theta - pi.theta) > -1.0)) {
                             //     // std::cout << "particle " << i << " defector found = " << j << std::endl;
                             //     pi.if_defector = 1;
@@ -340,13 +315,6 @@ Particle& pi = particles[i];
                             // } else {pi.if_defector = -1;}
 
                         }
-                        
-
-                        
-                            
-
-                        
-
                     
 
                     } // loop over particles j that intereact with i 
@@ -362,7 +330,8 @@ Particle& pi = particles[i];
 
 
 }
-int time_aux = 0;
+
+int time_aux = 0; // auxiliary time variable
 double updatePositions(Particle* particles) {
 
     double minQuantity = 2; // Initially set to a large value
@@ -374,27 +343,24 @@ double updatePositions(Particle* particles) {
 // if yes, gives a +1 value and stores the direction; else if just gives a -1 value. 
 
     for (int i=0; i < N_particles; ++i) {
-        // std::cout << "there" << std::endl;
-        std::vector<int> neihgs = particles[i].neigh_loc;
-        // std::cout << "number of neighbors = "<< particles[i].neighbors  << std::endl;
-        // std::cout << "neighs size = " << neihgs.size() << std::endl;
+        std::vector<int> neihgs = particles[i].neigh_loc; // get the neighbors in the region
+
         if (particles[i].neighbors > 1) {
         for (int j = 0; j < particles[i].neighbors -1; j++)
         {   
-            // std::cout << "there 2" << std::endl;
-            // std::cout << "j = "<< j << std::endl;
-            int index_ang_neigh = neihgs[j];
-            // std::cout << "there 3" << std::endl;
+ 
+            int index_ang_neigh = neihgs[j]; // index of the neighbor in case there's one 
+  
             double ang_neigh = particles[index_ang_neigh].theta;
-            // std::cout << "there 4" << std::endl;
-            double quantity = cos(ang_neigh - particles[i].avg_ang_region);
+
+            double quantity = cos(ang_neigh - particles[i].avg_ang_region); // find the direction of the possible defector (minimum alignment possible)
            if (quantity < minQuantity) {
             minQuantity = quantity;
             minIndex = j;
            }
         }
 
-        if (minQuantity < -0.3)
+        if (minQuantity < -0.6) // checking if threshold is reached
         {
             particles[i].if_defector = 1;
             particles[i].defector = particles[minIndex].theta;
@@ -404,24 +370,21 @@ double updatePositions(Particle* particles) {
     } else {particles[i].if_defector = -1;}
 
     }
+
+    // update positions and angles of the particles
    
     for (int i = 0; i < N_particles; ++i) {
         double rnd = dis(gen);
-        
 
         double prod_avg;
         
-        prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta);
-        // std::cout<< "particle " << i << "-- > local order = " << prod_avg << std::endl;
-        // std::cout<< "particle " << i << "-- > if defector = " << particles[i].if_defector << std::endl;
-        if ( (prod_avg > 0.3)  & (particles[i].if_defector == 1)) {
-           
-            // std::cout << "TIME " << time_aux << " particle " << i << " -- ACTIVATED MINORITY RULE -- "  << std::endl;
+        prod_avg = cos(particles[i].avg_ang_region)*cos(particles[i].theta)+ sin(particles[i].avg_ang_region)*sin(particles[i].theta); //scalar product with the direction of defector
+
+        if ( (prod_avg > 0.6)  & (particles[i].if_defector == 1)) {
+
             particles[i].theta += sin(particles[i].defector-particles[i].theta)*alig_str*Dt + eta*rnd*sqrt(Dt);
         } 
-        else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);}
-        // particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);
-
+        else {particles[i].theta += particles[i].alignment*alig_str*Dt/particles[i].neighbors + eta*rnd*sqrt(Dt);} //if not, vicsek alignment
         
       
         particles[i].x += particles[i].fx*Dt + Vo*cos(particles[i].theta)*Dt;
@@ -438,7 +401,7 @@ double updatePositions(Particle* particles) {
     }
 
 
-    // double dist=0.0;
+  // calculate global polar order parameter
     double aux_dist_x=0.0;
     double aux_dist_y=0.0;
     for (int f=0; f <N_particles; f++) {
@@ -458,18 +421,17 @@ double updatePositions(Particle* particles) {
     return dist;
 
 }
-
+ 
 
 int main(int argc, char* argv[]) {
-
+ 
+ // Check if the parameter file is provided
     if (argc < 2) {
         std::cerr << "Usage: " << argv[0] << " <parameter_file>" << std::endl;
         return 1;
     }
 
     std::string param_file = argv[1];
-    // gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
-    // gsl_rng_set(r, time(NULL));
 
     std::map<std::string, double> params = readParams(param_file);
 
@@ -508,14 +470,8 @@ int main(int argc, char* argv[]) {
 
     std::ofstream sd;
     sd.open(squared_disp_file_name); 
-        // std::ofstream file("particle_positions.dat"); // Create a new file or overwrite if it already exists
-        // file.close();
-    
-    // std::ofstream sd;
-    // sd.open("squared_disp.dat");  
 
-    // sd.close();
-        
+    // run the simulation
     for (int t = 0; t < T; ++t) {
        // std::cout << "time= " << t << std::endl << "---------------------" << "\n";
         
@@ -538,7 +494,7 @@ int main(int argc, char* argv[]) {
         // std:: cout << store_msd << "\n";
         // sd << (t*Dt) << " " << store_msd/N_particles << "\n";
         
-       if (t%t_XY_Save==0) { 
+       if (t%t_XY_Save==0) {  // Save every t_XY_Save time steps
        savePositions(particles, positions_file_name);}
         
     }
@@ -547,6 +503,6 @@ int main(int argc, char* argv[]) {
     free(head);
     free(linkedList);
     sd.close();
-    // gsl_rng_free(r);
+
     return 0;
 }
